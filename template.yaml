@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  empirica-case
+
+  Sample SAM Template for empirica-case
+Parameters:
+  DeployStage:
+    Type: String
+    Default: homolog
+    AllowedValues:
+      - prod
+      - homolog
+      - dev
+    Description: Estágios de deploy da aplicação.
+
+  CessaoS3BucketName:
+    Type: String
+    Default: empirica-cessao-arquivos
+    Description: Nome do bucket para upload dos arquivos.
+
+Globals:
+  Function:
+    Timeout: 10
+
+Resources:
+  CsvProcessorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/file_processor/
+      Handler: app.lambda_handler
+      Runtime: python3.8
+      Architectures:
+        - x86_64
+      Events:
+        Cessao:
+          Type: Api
+          Properties:
+            Path:  "/v1/cessao"
+            Method: post
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref CessaoS3Bucket
+        - SQSPollerPolicy:
+            QueueName: !Ref SqsQueue
+        - SQSSendMessagePolicy:
+            QueueName: !Ref SqsQueue
+
+  DataBaseConectorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/database_connector/
+      Handler: app.handler
+      Runtime: python3.8
+      Architectures:
+        - x86_64
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CessaoTable
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SqsQueue.Arn
+            BatchSize: 10
+
+  SqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: cessao-queue
+
+
+  CessaoS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${CessaoS3BucketName}-${DeployStage}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: false
+
+  CessaoTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: ID_CESSAO
+        Type: String
+      TableName: cessao
+
