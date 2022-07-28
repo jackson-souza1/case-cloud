@@ -42,9 +42,9 @@ Resources:
         - S3ReadPolicy:
             BucketName: !Ref CessaoS3Bucket
         - SQSPollerPolicy:
-            QueueName: !Ref SqsQueue
+            QueueName: !GetAtt SqsQueue.QueueName
         - SQSSendMessagePolicy:
-            QueueName: !Ref SqsQueue
+            QueueName: !GetAtt SqsQueue.QueueName
 
   DataBaseConectorFunction:
     Type: AWS::Serverless::Function
@@ -90,4 +90,3 @@ Resources:
         Name: ID_CESSAO
         Type: String
       TableName: cessao
-
